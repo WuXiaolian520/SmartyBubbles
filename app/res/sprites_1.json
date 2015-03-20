@@ -1,0 +1,32 @@
+{
+"images": ["sprites_1.png"],
+"frames": [
+
+    [305,336,54,54],
+    [259,280,54,54],
+    [259,224,54,54],
+    [258,456,54,54],
+    [198,60,54,54],
+    [198,4,54,54],
+    [314,446,50,50],
+    [305,392,50,50],
+    [4,4,110,377]
+
+],
+"animations": {
+    
+        "bubble1": [0],
+        "bubble2": [1],
+        "bubble3": [2],
+        "bubble4": [3],
+        "bubble5": [4],
+        "bubble6": [5],
+        "bubble_empty": [6],
+        "bubble_null": [7],
+        "shooting_arm": [8]
+},
+"texturepacker": [
+        "SmartUpdateHash: $TexturePacker:SmartUpdate:3fc4b73814e42c0355bfbfba8e707b58:1298388f56bfc7131c1bdf6b776c3012:bdb67f1cf5c8c4eeafa47f34d4ab242b$",
+        "Created with TexturePacker (http://www.texturepacker.com) for EaselJS"
+]
+}
