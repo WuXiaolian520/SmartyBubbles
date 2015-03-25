@@ -1,5 +1,7 @@
 /*
  * Resouce controller
+ * 1:Preloade manifest
+ * 2:Give the image or sounds
  */
 
 'use strict';
@@ -7,19 +9,18 @@
 var preloader
     , _manifest
     , _fileType
-    , complete = false
     , img_array = []    // The images list array.
     , json_array = []   // The jsons list array.
     , sound_array = [];
 
 var resourceService = module.exports = {
     init: res_init,
-    isComplete: loadFinsh,
-    getBitmap : getBitmap
+    getBitmap : getBitmap, //TODO: give up the function
+    getResConfig : getResConfig
 };
 
 
-function res_init() {
+function res_init(func) {
 
     prepaerSetting();
 
@@ -29,8 +30,11 @@ function res_init() {
     // Listener
     preloader.on("fileload", handleFileLoad);
     preloader.on("progress", handleProgress);
-    preloader.on("complete", handleComplete);  
     preloader.on("error", handleError);
+    preloader.on("complete", function() {
+        console.log("...preloader is Complete...");
+        func.call(this);
+    }); 
 
     // Loading
     preloader.loadManifest( _manifest, true, 'res/' );
@@ -38,9 +42,6 @@ function res_init() {
 }
 
 
-function loadFinsh() {
-    return complete;
-}
 // Prepare the congif data in resourceService
 function prepaerSetting() {
 
@@ -73,35 +74,13 @@ function handleProgress( event ) {
 }
 
 
-function handleComplete( event ) {
-
-    // TODO: called when load complete
-    console.log("preloader is Complete");
-    complete = true;
-}
-
-
 // Handle when a file finsh loading.
 function handleFileLoad( event ) {
     var item = event.item;
 
-    // Group the files by type
-    groupFile(item);
-
-}
-
-
-function handleError( event ) {
-
-    // TODO: called when load error
-    console.log("preloader error , and id = " + event.item);
-
-}
-
-
-// Group the files by type , saved in an array
-function groupFile( item ) {
-
+    // Group the files by type , saved in an array
+    // groupFiles(item);
+    
     switch ( item.type ) {
         case _fileType.IMAGE:
             img_array.push(item.id);
@@ -116,18 +95,74 @@ function groupFile( item ) {
     }
 }
 
+
+function handleError( event ) {
+
+    // TODO: called when load error
+    console.log(event);
+    console.log("preloader error , src is = " + event.data.src);
+
+}
+
+
+// Group the files by type , saved in an array
+// function groupFiles( item ) {
+
+//     switch ( item.type ) {
+//         case _fileType.IMAGE:
+//             img_array.push(item.id);
+//             break;
+//         case _fileType.JSON:
+//             json_array.push( item.id );
+            
+//             break;
+//         case _fileType.SOUND:
+//             sound_array.push( item.id );
+//             break;
+//     }
+// }
+
+/*
+ * Get the bitmap , and a Bitmap represents an Image.
+ * @param {String} name The name of image
+ * @return {Bitmap} Returns the bitmap with pasting the image
+ * TODO: Be deprecated
+ */
+function getBitmap( name ) {
+    var json_res
+        , image
+        , frame;
+
+    if( null == name )
+        return null;
+
+    json_res = traverseJson( name );
+    
+    if( null == json_res ) {
+        return null;
+    }
+   
+    frame = json_res.frame;
+    var img_id = mapController( json_res.json_id );
+
+    var bitmap = new createjs.Bitmap( preloader.getResult( img_id ) );
+    bitmap.sourceRect = new createjs.Rectangle( frame[0], frame[1], frame[2], frame[3] );
+    bitmap.set( {width:frame[2], height: frame[3], scaleX: 1, scaleY: 1} );
+
+    return bitmap;    
+}
+
 /*
  * Get the bitmap , and a Bitmap represents an Image.
  * @param {String} name The name of image
  * @return {Bitmap} Returns the bitmap with pasting the image
  */
-function getBitmap( name ) {
-    var id = name
-        , json_res
-        , image
-        , frame;
+function getResConfig( name ) {
+    var json_res
+        , img_id
+        , res = {};
 
-    if( null == id )
+    if( null == name )
         return null;
 
     json_res = traverseJson( name );
@@ -136,19 +171,12 @@ function getBitmap( name ) {
         return null;
     }
 
-    console.log()
-    frame = json_res.frame;
-    var img_id = mapController( json_res.json_id );
+    img_id = mapController( json_res.json_id );
 
-    var bitmap = new createjs.Bitmap( preloader.getResult( img_id ) );
-    // bitmap.width = frame[2];
-    // bitmap.height = frame[3];
-    bitmap.sourceRect = new createjs.Rectangle( frame[0], frame[1], frame[2], frame[3] );
-    bitmap.set( {width:frame[2], height: frame[3]} );
-
-    return bitmap;    
+    res.frame = json_res.frame;
+    res.url = preloader.getResult( img_id );
+    return res;
 }
-
 
 /*
  * Traverse the array of JSON , find the name of json which have the resource.
@@ -192,7 +220,7 @@ function traverseJson ( name ) {
             if( name == key ) {
                 var res = {};
                 res.json_id = json_array[i];
-                res.value = animations[key];
+                // res.value = animations[key];
                 res.frame = json_data.frames[animations[key]];
                 return res;
             }

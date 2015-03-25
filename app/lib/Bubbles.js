@@ -1,3 +1,4 @@
+
 /*
  * Bubbles class
  */
@@ -5,98 +6,195 @@
 'use strict';
 
 var createSubClass = require('./util').createSubclass
-    , Container = createjs.Container;
+    , Bitmap = createjs.Bitmap
+    , resService = require('./resource');
 
-module.exports = createSubClass(Container, 'Bubbles', {
-    initialize: Bubbles$initialize
+var eventDispatcher = new createjs.EventDispatcher;
+
+module.exports = createSubClass(Bitmap, 'Bubbles', {
+    initialize: Bubbles$initialize,
+    setPos: Bubbles$setPos,
+    getPos: Bubbles$getPos,
+    getRowCol: Bubbles$getRowCol,
+    destroy: Bubbles$destroy,
+    setNeighbors: Bubbles$setNeighbors,
+    getNeighbors: Bubbles$getNeighbors,
+    resetNeighbor: Bubbles$setNeighbors,
+    getType: Bubbles$getType,
+    getFullRing: Bubbles$getFullRing
 });
 
-var _radius = 27;
+var _type = {
+    "bubble1" : 1,
+    "bubble2" : 2,
+    "bubble3" : 3,
+    "bubble4" : 4,
+    "bubble5" : 5,
+    "bubble6" : 6,
+};
 
-function Bubbles$initialize(x, y) {
+var _bubbles = ["bubble1", "bubble2","bubble3","bubble4","bubble5","bubble6"];
+
+function Bubbles$initialize( x, y , row, col ) {
     
-    Container.prototype.initialize.apply(this, arguments);
-    this.x = _radius * x;
-    this.y = _radius * y;
+    Bitmap.prototype.initialize.apply(this, arguments);
 
-    _prepareBubble.call(this, x, y);
-    this.on( 'tick', handlTick );
+    this.setPos( x, y, row, col ); 
+    this.neighbor = {
+        'left':null,
+        'right':null,        
+        'upleft': null,
+        'upright': null,
+        'downleft':null,
+        'downright':null
+    };
+
+    this._visit = false;
+
+    var bub_name = _randomBubbleType.call(this);
+    this.type = _type[bub_name];
+
+    var config = resService.getResConfig( bub_name )
+    _setConfig.call( this, config );
+
+    this.on( 'tick', onBigger );
 
 }
 
 
-function _prepareBubble( ix, iy ) {
+function Bubbles$setPos( x, y, row, col ) {
 
-    var bubbles = ["bubble1", "bubble2","bubble3","bubble4","bubble5","bubble6"];
-
-    var randomBubbles = bubbles[Math.random() * bubbles.length | 0];
-
-    this.body = setBitmap( randomBubbles);
-
-    this.body.scaleX = this.body.scaleY = 0.1;
-    this.body.x = _radius + _radius * ix;
-    this.body.y = _radius + _radius * iy;
-    this.body.regX = this.body.width >> 1;
-    this.body.regY = this.body.height >> 1;
-
-    this.body.x = (iy%2===0)?(this.body.x + 26):this.body.x ;
-
-    this.addChild(this.body); 
-   
+    this.x = x;
+    this.y = y;
+    this.row = row;
+    this.col = col;   
 }
 
 
-function handlTick( event ) {
-    var _value = this.body.scaleX; 
+function Bubbles$getPos() {
+    return {
+        x: this.x,
+        y: this.y
+    }
+}
+
+
+function Bubbles$getRowCol() {
+    return {
+        row: this.row,
+        col: this.col
+    }
+}
+
+// TODO :NOT WORK
+function Bubbles$destroy() {
+    this.on( 'rollover', onSmaller);
+    console.log('destroyed');
+}
+
+
+function Bubbles$setNeighbors( pos, value ) {
+
+    if ( value ) {
+        this.neighbor[pos] = {
+            x: value.x,
+            y: value.y,
+            type: value.type,
+            row: value.row,
+            col: value.col
+        };        
+    } else {
+        this.neighbor[pos] = value;
+    }
+
+}
+
+
+// 查询球的邻居是否满员
+function Bubbles$getFullRing () {
+
+    return isFullRing.call(this);
+}
+
+
+// 检测是否邻居已经满员
+function isFullRing() {
+
+    for( var pos in this.neighbor ) {
+
+        if( null == this.neighbor[pos] ){
+
+            return false;
+        }
+    }
+
+    return true;
+}   
+
+function Bubbles$getNeighbors() {
+
+    return this.neighbor;
+}
+
+function Bubbles$resetNeighbor() {
+
+    this.neighbor = {
+        'upleft': null,
+        'upright': null,
+        'left':null,
+        'right':null,
+        'downleft':null,
+        'downright':null
+    };    
+}
+
+
+function Bubbles$getType() {
+    return this.type;
+}
+
+
+function onSmaller( event ) {
+
+    var _value = this.scaleX; 
     if ( _value < 1 ) {
-        this.body.scaleX += 0.05;
-        this.body.scaleY += 0.05;
+
+        this.scaleX = this.scaleY -= 0.05;
+    }    
+}
+
+
+function _setConfig( config ) {
+
+    var frame = config.frame;
+
+    this.image = config.url;
+
+    this.sourceRect = new createjs.Rectangle( frame[0], frame[1], frame[2], frame[3] );
+    this.width = frame[2];
+    this.height = frame[3];
+
+    this.scaleX = this.scaleY = 0.1;
+    this.regX = this.width >> 1;
+    this.regY = this.height >> 1;
+}
+
+function _randomBubbleType() {
+    
+    var name = _bubbles[Math.random() * _bubbles.length | 0];
+
+    return name;//resService.getResConfig( name );
+}
+
+
+function onBigger( event ) {
+
+    var _value = this.scaleX; 
+
+    if ( _value < 1 ) {
+
+        this.scaleX = this.scaleY += 0.05;
     } 
 }
 
-/*
- * @param
- */
-function setBitmap( name) {
 
-    var frame = getFrames(name);    
-    
-    var bitmap = new createjs.Bitmap('res/sprites_1.png');
-    bitmap.width = frame[2];
-    bitmap.height = frame[3];
-    bitmap.sourceRect = new createjs.Rectangle(frame[0], frame[1], frame[2], frame[3]);
-
-    return bitmap;
-}
-
-
-function getFrames(name) {
-    var sprites_1 = {
-        "images": ['res/sprites_1.png'],        
-        "animations": {
-            "bubble1": [0],
-            "bubble2": [1],
-            "bubble3": [2],
-            "bubble4": [3],
-            "bubble5": [4],
-            "bubble6": [5],
-            "bubble_empty": [6],
-            "bubble_null": [7],
-            "shooting_arm": [8]
-        },
-        "frames": [
-            [305,336,54,54],
-            [259,280,54,54],
-            [259,224,54,54],
-            [258,456,54,54],
-            [198,60 ,54,54],
-            [198,4  ,54,54],
-            [314,446,50,50],
-            [305,392,50,50],
-            [4,4,110,377]
-        ]
-    };
-    var index = sprites_1.animations[name];
-
-    return sprites_1.frames[index];
-}
