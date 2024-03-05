@@ -9,14 +9,19 @@
 var preloader
     , _manifest
     , _fileType
+    , assetsPath
+    , spriteSheet
     , img_array = []    // The images list array.
     , json_array = []   // The jsons list array.
-    , sound_array = [];
+    ;
 
 var resourceService = module.exports = {
     init: res_init,
     getBitmap : getBitmap, //TODO: give up the function
-    getResConfig : getResConfig
+    getResConfig : getResConfig,
+    radioSound : radioSound,
+    stopSound : stopSound,
+    getFont : getFont
 };
 
 
@@ -24,8 +29,10 @@ function res_init(func) {
 
     prepaerSetting();
 
+    createjs.Sound.alternateExtensions = ["mp3"];
     // Loading power
-    preloader = new createjs.LoadQueue(true);
+    preloader = new createjs.LoadQueue( true, assetsPath );
+    preloader.installPlugin( createjs.Sound );
 
     // Listener
     preloader.on("fileload", handleFileLoad);
@@ -37,29 +44,76 @@ function res_init(func) {
     }); 
 
     // Loading
-    preloader.loadManifest( _manifest, true, 'res/' );
+    preloader.loadManifest( _manifest );   
+}
+
+
+function getFont( message ) {
+
+    if( !message) return null;
+
+    spriteSheet = new createjs.SpriteSheet( preloader.getResult('font') ); 
+    
+    var text = new createjs.BitmapText( message ,spriteSheet);
+    return text;
+}
+
+
+function radioSound( target, loop ) {
+
+    if( !loop ) loop = false;
+    
+    //Play the sound: play (src, interrupt, delay, offset, loop, volume, pan)
+    var instance = createjs.Sound.play(target, createjs.Sound.INTERRUPT_NONE, 0, 0, loop, 1); 
+    
+    if (instance == null || instance.playState == createjs.Sound.PLAY_FAILED) {
+        return;
+    }     
+    
+    // instance.addEventListener("complete", function (instance) {
+    //     console.log('声音 = ',target,'播放完成');
+    // });
 
 }
 
 
+function stopSound() {
+    createjs.Sound.stop();
+}
+
 // Prepare the congif data in resourceService
 function prepaerSetting() {
+
+    assetsPath = "./res/";
 
     // Set the source path map
     _manifest = [
         {src: 'sprites_0.png', id: 'img_0'},
         {src: 'sprites_1.png', id: 'img_1'},
+        {src: 'spritesheet_font.png', id: 'img_font'},
+
         {src: 'sprites_0.json', id: 'json_0'},
         {src: 'sprites_1.json', id: 'json_1'},
-        {src: 'sounds/ogg/start.ogg', id: 'start'},
-        {src: 'sounds/ogg/snap.ogg', id: 'snap'}
+        {src: 'spritesheet_font.json', id: 'font'},
+
+        {src: 'sounds/ogg/bonus.ogg', id: 'bonus'},     // 奖金
+        {src: 'sounds/ogg/burst.ogg', id: 'burst'},     // 爆发
+        {src: 'sounds/ogg/start.ogg', id: 'start'},  
+        {src: 'sounds/ogg/snap.ogg', id: 'snap'},       // 突然折断，拉断
+
+        {src: 'sounds/ogg/bounce.ogg', id: 'bounce'},   // vt. 弹跳
+        {src: 'sounds/ogg/tap.ogg', id: 'tap'},
+        {src: 'sounds/ogg/shoot.ogg', id: 'shoot'},
+
+        {src: 'sounds/ogg/game_over_failure.ogg', id: 'game_over_failure'},
+        {src: 'sounds/ogg/game_over_success.ogg', id: 'game_over_success'},
+        {src: 'sounds/ogg/new_row.ogg', id: 'new_row'}        
     ]; 
 
     // Set the file type name
     _fileType = {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
         IMAGE : createjs.AbstractLoader.IMAGE,
-        JSON : createjs.AbstractLoader.JSON,
-        SOUND : createjs.AbstractLoader.SOUND
+        JSON : createjs.AbstractLoader.JSON
     };
 
 }
@@ -79,7 +133,6 @@ function handleFileLoad( event ) {
     var item = event.item;
 
     // Group the files by type , saved in an array
-    // groupFiles(item);
     
     switch ( item.type ) {
         case _fileType.IMAGE:
@@ -87,10 +140,6 @@ function handleFileLoad( event ) {
             break;
         case _fileType.JSON:
             json_array.push( item.id );
-            
-            break;
-        case _fileType.SOUND:
-            sound_array.push( item.id );
             break;
     }
 }
@@ -105,47 +154,24 @@ function handleError( event ) {
 }
 
 
-// Group the files by type , saved in an array
-// function groupFiles( item ) {
-
-//     switch ( item.type ) {
-//         case _fileType.IMAGE:
-//             img_array.push(item.id);
-//             break;
-//         case _fileType.JSON:
-//             json_array.push( item.id );
-            
-//             break;
-//         case _fileType.SOUND:
-//             sound_array.push( item.id );
-//             break;
-//     }
-// }
-
 /*
  * Get the bitmap , and a Bitmap represents an Image.
  * @param {String} name The name of image
  * @return {Bitmap} Returns the bitmap with pasting the image
  * TODO: Be deprecated
  */
+
 function getBitmap( name ) {
-    var json_res
-        , image
+    var res
         , frame;
-
-    if( null == name )
-        return null;
-
-    json_res = traverseJson( name );
     
-    if( null == json_res ) {
-        return null;
-    }
-   
-    frame = json_res.frame;
-    var img_id = mapController( json_res.json_id );
+    res = getResConfig( name );
 
-    var bitmap = new createjs.Bitmap( preloader.getResult( img_id ) );
+    if( !res ) return null;
+
+    var bitmap = new createjs.Bitmap( res.url );
+
+    frame = res.frame;
     bitmap.sourceRect = new createjs.Rectangle( frame[0], frame[1], frame[2], frame[3] );
     bitmap.set( {width:frame[2], height: frame[3], scaleX: 1, scaleY: 1} );
 
@@ -158,23 +184,19 @@ function getBitmap( name ) {
  * @return {Bitmap} Returns the bitmap with pasting the image
  */
 function getResConfig( name ) {
+
     var json_res
-        , img_id
         , res = {};
 
     if( null == name )
         return null;
 
-    json_res = traverseJson( name );
+    json_res = getJson( name );
     
-    if( null == json_res ) {
-        return null;
-    }
-
-    img_id = mapController( json_res.json_id );
+    if( !json_res ) { return null; }
 
     res.frame = json_res.frame;
-    res.url = preloader.getResult( img_id );
+    res.url = preloader.getResult( json_res.image );
     return res;
 }
 
@@ -197,53 +219,91 @@ function getResConfig( name ) {
  * @param {String} name The name of resource, ex: image, sound(json.animations[name]).
  * @return {Object} Returns the name of json , the value (json.animations.name[0]) and the frame value.
  */
-function traverseJson ( name ) {
-    var json_data
-        , animations
-        , key;
+// function traverseJson ( name ) {
+//     var json_data
+//         , animations
+//         , json_id
+//         , key
+//         , res = {};
 
-    if( null == name )
-        return null;
+//     if( null == name )
+//         return null;
+
+//     for( var i=0; i < json_array.length; i++ ) {
+        
+//         json_id = json_array[i];
+
+//         json_data = preloader.getResult( json_array[i].toString() );
+//         animations = json_data.animations;
+
+//         if( null == animations )
+//             continue;
+
+//         // Method 1
+//         for( key in animations ) {
+
+//             if( name == key ) {
+
+//                 res.json_id = json_array[i];
+//                 res.frame = json_data.frames[animations[key]];
+
+//                 return res;
+//             }
+//         }
+        
+//         // Method 2: 生成animations的key的数组, 不支持低版本浏览器
+//         // var keylist = Object.keys(animations);
+
+//     }
+// }
+
+
+function getJson( name ) {
+
+    var json_data
+        , json_id
+        , animations
+        , key
+        , res = {};
+
+    if( !name )  return null;
 
     for( var i=0; i < json_array.length; i++ ) {
         
-        var json_id = json_array[i];
+        json_id = json_array[i];
+
         json_data = preloader.getResult( json_array[i].toString() );
         animations = json_data.animations;
 
-        if( null == animations )
-            continue;
+        if( !animations ) continue;
 
-        // Method 1
         for( key in animations ) {
 
             if( name == key ) {
-                var res = {};
-                res.json_id = json_array[i];
-                // res.value = animations[key];
+
                 res.frame = json_data.frames[animations[key]];
+                res.image = json_data.images[0].id;
+
                 return res;
             }
         }
-        
-        // Method 2: 生成animations的key的数组, 不支持低版本浏览器
-        // var keylist = Object.keys(animations);
 
     }
 }
 
+// function mapController ( key ) {
 
-function mapController ( key ) {
+//     // json 和 png 图片映射表
+//     var _jsonMap = {
+//         'json_0': 'img_0',
+//         'json_1': 'img_1'
+//     };
 
-    // json 和 png 图片映射表
-    var _jsonMap = {
-        'json_0': 'img_0',
-        'json_1': 'img_1'
-    };
-
-    if( null == key)
-        return null;
-    else 
-        return _jsonMap[key];
+//     if( null == key)
+//         return null;
+//     else 
+//         return _jsonMap[key];
     
-}
+// }
+
+
